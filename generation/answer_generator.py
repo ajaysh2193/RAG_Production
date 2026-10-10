@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from typing import List
 
 from dotenv import load_dotenv
-from openai import OpenAI
+import boto3
 
 from generation.prompt_builder import PromptMessages
+from config.settings import AWS_REGION, BEDROCK_GENERATION_MODEL
 
 load_dotenv()
 
@@ -21,25 +22,22 @@ class Answer:
 
 def generate(prompt: PromptMessages, query: str, chunks_used: int) -> Answer:
     """
-    Call the OpenAI API with the prompt messages.
+    Call Amazon Bedrock with the prompt messages.
     Parse citation strings from the response (lines matching '[Source: ..., Section: ...]').
     Return an Answer dataclass.
-    Model: gpt-4o-mini
+    Model: configured Bedrock Converse model
     Max tokens: 1024
-    Read OPENAI_API_KEY from environment variables using python-dotenv.
+    AWS credentials use the normal boto3 credential chain (AWS profile,
+    environment variables, or an IAM role).
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=1024,
-        messages=[
-            {"role": "system", "content": prompt.system},
-            {"role": "user", "content": prompt.user},
-        ],
+    client = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_REGION", AWS_REGION))
+    response = client.converse(
+        modelId=os.getenv("BEDROCK_GENERATION_MODEL", BEDROCK_GENERATION_MODEL),
+        system=[{"text": prompt.system}],
+        messages=[{"role": "user", "content": [{"text": prompt.user}]}],
+        inferenceConfig={"maxTokens": 1024, "temperature": 0},
     )
-
-    text = response.choices[0].message.content or ""
+    text = response["output"]["message"]["content"][0]["text"]
     citations = re.findall(r'\[Source: .+?, Section: .+?\]', text)
 
     return Answer(

@@ -1,8 +1,10 @@
-from config.settings import CHROMA_PATH, COLLECTION_NAME, EMBED_MODEL, TOP_K
+from config.settings import (CHROMA_PATH, COLLECTION_NAME, EMBED_MODEL, TOP_K,
+                             RERANK_CANDIDATES, RERANKER_MODEL)
 from generation.answer_generator import generate
 from generation.prompt_builder import build_prompt
 from pipeline.state import RAGState
 from retrieval.hybrid_search import search
+from retrieval.reranker import rerank
 from vectorstore.embedder import load_embedding_model
 from vectorstore.store import load_collection
 
@@ -18,10 +20,18 @@ def retrieve_node(state: RAGState) -> dict:
     try:
         collection = load_collection(CHROMA_PATH, COLLECTION_NAME)
         model = load_embedding_model(EMBED_MODEL)
-        chunks = search(state["query"], collection, model, TOP_K)
+        chunks = search(state["query"], collection, model, RERANK_CANDIDATES)
         return {"retrieved_chunks": chunks}
     except Exception as exc:
         return {"error": f"Retrieval failed: {exc}"}
+
+
+def rerank_node(state: RAGState) -> dict:
+    """Use a cross-encoder to order hybrid-search candidates before prompting."""
+    try:
+        return {"retrieved_chunks": rerank(state["query"], state["retrieved_chunks"], RERANKER_MODEL, TOP_K)}
+    except Exception as exc:
+        return {"error": f"Reranking failed: {exc}"}
 
 
 def build_prompt_node(state: RAGState) -> dict:

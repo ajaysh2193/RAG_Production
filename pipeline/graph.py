@@ -1,7 +1,7 @@
 from langgraph.graph import END, START, StateGraph
 
 from generation.answer_generator import Answer
-from pipeline.nodes import build_prompt_node, generate_node, retrieve_node
+from pipeline.nodes import build_prompt_node, generate_node, rerank_node, retrieve_node
 from pipeline.state import RAGState
 
 
@@ -9,7 +9,7 @@ def _route_after_retrieve(state: RAGState) -> str:
     """Route to END if retrieval errored, otherwise continue to build_prompt_node."""
     if state.get("error"):
         return END
-    return "build_prompt_node"
+    return "rerank_node"
 
 
 def build_rag_graph():
@@ -23,18 +23,20 @@ def build_rag_graph():
     graph = StateGraph(RAGState)
 
     graph.add_node("retrieve_node", retrieve_node)
+    graph.add_node("rerank_node", rerank_node)
     graph.add_node("build_prompt_node", build_prompt_node)
     graph.add_node("generate_node", generate_node)
 
     graph.add_edge(START, "retrieve_node")
     graph.add_conditional_edges("retrieve_node", _route_after_retrieve)
+    graph.add_conditional_edges("rerank_node", lambda state: END if state.get("error") else "build_prompt_node")
     graph.add_edge("build_prompt_node", "generate_node")
     graph.add_edge("generate_node", END)
 
     return graph.compile()
 
 
-def run_query(query: str) -> Answer:
+def run_query_with_trace(query: str) -> dict:
     """
     Build the graph, invoke it with initial state {"query": query, "error": ""},
     and return the Answer from the final state.
@@ -53,4 +55,9 @@ def run_query(query: str) -> Answer:
     if final_state.get("error"):
         raise RuntimeError(final_state["error"])
 
-    return final_state["answer"]
+    return final_state
+
+
+def run_query(query: str) -> Answer:
+    """Run a query and return only its generated answer."""
+    return run_query_with_trace(query)["answer"]

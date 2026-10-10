@@ -1,5 +1,11 @@
 chroma_data/
+bm25_index.pkl
 .env
 __pycache__/
 *.pyc
 .DS_Store
+venv/
+.venv/
+env/
+.env/
+ENV/

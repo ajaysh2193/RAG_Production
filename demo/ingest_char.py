@@ -21,23 +21,24 @@ from config.settings import (
     EMBED_MODEL,
 )
 from chunking.character_splitter import split_by_characters
+from document_loaders import load_document
+from retrieval.bm25_index import save_bm25_index
 from vectorstore.embedder import embed_chunks, load_embedding_model
 from vectorstore.store import get_or_create_collection, upsert_chunks
 
 
 def main() -> None:
-    md_files = sorted([
+    source_files = sorted([
         os.path.join(DOCS_PATH, f)
         for f in os.listdir(DOCS_PATH)
-        if f.endswith(".md")
+        if f.lower().endswith((".md", ".pdf"))
     ])
-    print(f"Found {len(md_files)} document(s): {[os.path.basename(f) for f in md_files]}\n")
+    print(f"Found {len(source_files)} document(s): {[os.path.basename(f) for f in source_files]}\n")
 
     all_chunks = []
-    for doc_path in md_files:
+    for doc_path in source_files:
         doc_title = os.path.basename(doc_path)
-        with open(doc_path, "r", encoding="utf-8") as f:
-            text = f.read()
+        text = load_document(doc_path)
         chunks = split_by_characters(text, doc_title, CHAR_CHUNK_SIZE, CHAR_CHUNK_OVERLAP)
         print(f"  {doc_title}: {len(chunks)} character chunks")
         all_chunks.extend(chunks)
@@ -48,9 +49,10 @@ def main() -> None:
     embeddings = embed_chunks(all_chunks, model)
     collection = get_or_create_collection(CHROMA_PATH, COLLECTION_NAME)
     upsert_chunks(collection, all_chunks, embeddings)
+    save_bm25_index(all_chunks)
 
     print(f"\nIngestion complete (character splitting):")
-    print(f"  Documents processed : {len(md_files)}")
+    print(f"  Documents processed : {len(source_files)}")
     print(f"  Total chunks stored : {len(all_chunks)}")
     print(f"  ChromaDB path       : ./{CHROMA_PATH}")
 

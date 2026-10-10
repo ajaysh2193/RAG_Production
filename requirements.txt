@@ -1,4 +1,4 @@
-openai
+boto3
 chromadb
 sentence-transformers
 langgraph
@@ -6,3 +6,7 @@ langchain-core
 rank-bm25
 python-dotenv
 typing-extensions
+pymupdf4llm
+ragas
+langchain-aws
+pandas

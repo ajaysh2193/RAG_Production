@@ -1,8 +1,8 @@
 from typing import List
 
 import chromadb
-from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
+from retrieval.bm25_index import load_bm25_index
+from vectorstore.embedder import BedrockEmbeddingModel
 
 from retrieval.semantic_search import RetrievedChunk
 
@@ -10,7 +10,7 @@ from retrieval.semantic_search import RetrievedChunk
 def search(
     query: str,
     collection: chromadb.Collection,
-    model: SentenceTransformer,
+    model: BedrockEmbeddingModel,
     top_k: int,
 ) -> List[RetrievedChunk]:
     """
@@ -20,19 +20,16 @@ def search(
         rrf_score = 1/(rank_bm25 + 60) + 1/(rank_vector + 60)
     Return top_k results sorted by RRF score descending.
     """
-    # Fetch all documents to build the BM25 corpus
-    all_docs = collection.get(include=["documents", "metadatas"])
-    documents: List[str] = all_docs["documents"]
-    metadatas: List[dict] = all_docs["metadatas"]
-    ids: List[str] = all_docs["ids"]
+    # The BM25 corpus is built during ingestion and loaded here, avoiding a
+    # full ChromaDB collection.get() for every question.
+    index = load_bm25_index()
+    documents, metadatas, ids = index.documents, index.metadatas, index.ids
 
     if not documents:
         return []
 
     # BM25 keyword search
-    tokenized_corpus = [doc.lower().split() for doc in documents]
-    bm25 = BM25Okapi(tokenized_corpus)
-    bm25_scores = bm25.get_scores(query.lower().split())
+    bm25_scores = index.bm25.get_scores(query.lower().split())
     bm25_ranked = sorted(range(len(bm25_scores)), key=lambda i: bm25_scores[i], reverse=True)
 
     print(f"\n{'─' * 60}")
@@ -48,7 +45,7 @@ def search(
         print(f"        \"{preview}...\"")
 
     # Vector similarity search
-    query_embedding = model.encode([query])[0].tolist()
+    query_embedding = model.encode([query])[0]
     n_results = min(top_k * 2, len(documents))
     vector_results = collection.query(
         query_embeddings=[query_embedding],

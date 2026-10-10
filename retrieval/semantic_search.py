@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+from vectorstore.embedder import BedrockEmbeddingModel
 
 
 @dataclass
@@ -16,14 +16,14 @@ class RetrievedChunk:
 def search(
     query: str,
     collection: chromadb.Collection,
-    model: SentenceTransformer,
+    model: BedrockEmbeddingModel,
     top_k: int,
 ) -> List[RetrievedChunk]:
     """
     Embed the query, query the ChromaDB collection, return top_k results
     as RetrievedChunk objects ranked by similarity score.
     """
-    query_embedding = model.encode([query])[0].tolist()
+    query_embedding = model.encode([query])[0]
 
     results = collection.query(
         query_embeddings=[query_embedding],

@@ -1,6 +1,6 @@
 # RAG Documentation Assistant
 
-A production-quality Retrieval-Augmented Generation pipeline built with Python, LangGraph, and ChromaDB. Every concept is modularised into its own file so you can read and understand each piece in isolation.
+A production-quality Retrieval-Augmented Generation pipeline built with Python, LangGraph, ChromaDB, and AWS Bedrock. Every concept is modularised into its own file so you can read and understand each piece in isolation.
 
 ---
 
@@ -8,7 +8,7 @@ A production-quality Retrieval-Augmented Generation pipeline built with Python, 
 
 1. **Character vs Semantic Chunking** — Why splitting at fixed byte counts destroys code blocks and mixes topics, and how splitting at Markdown `##` headers preserves meaning boundaries.
 2. **Hybrid Chunking** — How a word-count gate triggers `###` sub-splitting for oversized sections, combining the best of structural and size-aware chunking.
-3. **Embedding & Vector Storage** — How `sentence-transformers` converts text into fixed-size vectors, and how ChromaDB's HNSW index stores and retrieves them from disk.
+3. **Embedding & Vector Storage** — How Amazon Titan embeddings from Bedrock are stored and retrieved through ChromaDB's HNSW index.
 4. **Hybrid Search (BM25 + Vector + RRF)** — Why keyword search (BM25) finds exact function names that semantic search misses, and how Reciprocal Rank Fusion merges both ranked lists.
 5. **LangGraph RAG Pipeline** — How a `StateGraph` wires three pure-function nodes (retrieve → build_prompt → generate) into a traceable, error-handled pipeline.
 
@@ -20,16 +20,17 @@ A production-quality Retrieval-Augmented Generation pipeline built with Python, 
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Copy the example env file and add your key
+# 2. Copy the example environment file
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY=sk-...
+# Select the Bedrock region/models enabled in your AWS account.
+# Credentials are picked up by boto3 (AWS CLI profile, SSO, environment, or IAM role).
 ```
 
 ---
 
 ## Add Your Documents
 
-Place `.md` files in `docs/`. Two documents are already included:
+Place `.md` or `.pdf` files in `docs/`. PDFs are converted to Markdown with `pymupdf4llm` before chunking. If both a PDF and Markdown copy remain in the folder, both are ingested.
 
 | File | Content |
 |------|---------|
@@ -145,7 +146,7 @@ RAG_Production/
 │   └── hybrid_search.py         # BM25 + vector + Reciprocal Rank Fusion
 ├── generation/
 │   ├── prompt_builder.py        # Assembles system prompt + grounded user message
-│   └── answer_generator.py      # Calls OpenAI API, extracts citations
+│   └── answer_generator.py      # Calls AWS Bedrock, extracts citations
 ├── pipeline/
 │   ├── state.py                 # RAGState TypedDict shared across all nodes
 │   ├── nodes.py                 # Three pure-function LangGraph nodes

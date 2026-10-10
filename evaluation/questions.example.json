@@ -1,0 +1,6 @@
+[
+  {
+    "question": "How does FastMCP register a tool?",
+    "reference": "FastMCP registers a tool using the @mcp.tool() decorator."
+  }
+]
